@@ -13,12 +13,19 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=edge"
 
+      # HTTPS router
       - "traefik.http.routers.artemis.rule=Host(`artemis.gearground.cloud`)"
       - "traefik.http.routers.artemis.entrypoints=websecure"
       - "traefik.http.routers.artemis.tls=true"
       - "traefik.http.routers.artemis.tls.certresolver=le"
-
       - "traefik.http.services.artemis.loadbalancer.server.port=80"
+
+      # HTTP router, který jen přesměruje na HTTPS
+      - "traefik.http.routers.artemis_http.rule=Host(`artemis.gearground.cloud`)"
+      - "traefik.http.routers.artemis_http.entrypoints=web"
+      - "traefik.http.routers.artemis_http.middlewares=artemis_https_redirect"
+      - "traefik.http.middlewares.artemis_https_redirect.redirectscheme.scheme=https"
+
 
 networks:
   edge:

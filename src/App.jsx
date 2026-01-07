@@ -86,6 +86,8 @@ export default function App() {
 
   const isLaunched = remaining != null && remaining <= 0;
 
+  const safeImage = data?.image && data.image.startsWith("https://") ? data.image : null;
+
   return (
     <div className="page">
       <div className="shell">
@@ -109,10 +111,12 @@ export default function App() {
                 </div>
               </div>
 
-              {data?.image ? (
-                <div className="thumbWrap" aria-hidden="true">
-                  <img className="thumb" src={data.image} alt="" loading="lazy" />
-                </div>
+
+
+              {safeImage ? (
+                  <div className="thumbWrap" aria-hidden="true">
+                    <img className="thumb" src={safeImage} alt="" loading="lazy" />
+                  </div>
               ) : null}
             </div>
 
