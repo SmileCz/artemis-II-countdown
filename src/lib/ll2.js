@@ -6,6 +6,7 @@
 const ENDPOINT =
   "/api/ll2/launches/upcoming/?search=Artemis%20II&limit=20&ordering=net";
 
+
 function pickArtemisII(results) {
   if (!Array.isArray(results) || results.length === 0) return null;
 
@@ -57,6 +58,6 @@ export async function fetchArtemisII(signal) {
     pad: launch.pad?.name ?? null,
     location: launch.pad?.location?.name ?? null,
     image: launch.image?.image_url ?? launch.image?.thumbnail_url ?? null,
-    url: launch.url ?? null,
+
   };
 }

@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   artemis_countdown:
-    image: smilecz/artemis-ii-countdown:1.0.2
+    image: smilecz/artemis-ii-countdown:1.0.3
     container_name: artemis_countdown
     restart: unless-stopped
 

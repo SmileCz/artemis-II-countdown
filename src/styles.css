@@ -52,8 +52,8 @@ a { color: inherit; }
 
 .grid {
   display: grid;
-  grid-template-columns: 1.55fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 8px;
 }
 
 .card {
@@ -194,6 +194,36 @@ dd { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; w
   border-radius: 999px;
   background: rgba(255,255,255,0.10);
   margin: 10px 0;
+}
+
+dd.wrap {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
+.sideLarge {
+  padding: 22px;
+}
+
+.sideLarge h2 {
+  font-size: 20px;
+}
+
+.sideLarge .dl {
+  gap: 12px;
+}
+
+.sideLarge .row {
+  grid-template-columns: 190px 1fr; /* víc místa pro labely */
+}
+
+.sideLarge dd {
+  white-space: normal;      /* konec tří teček */
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
 }
 
 @media (max-width: 920px) {

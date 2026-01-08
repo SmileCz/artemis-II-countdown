@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { fetchArtemisII } from "./lib/ll2.js";
 import { formatDateTime, pad2, splitCountdown } from "./lib/time.js";
 
-const REFRESH_MS = 15 * 60 * 1000; // 15 minut
+const REFRESH_MS = 60 * 60 * 1000; // 15 minut
 const TICK_MS = 250; // plynulejší odpočet bez zbytečné zátěže
 
 function useInterval(cb, delay) {
@@ -110,9 +110,6 @@ export default function App() {
                   {data?.rocket ? <span>• {data.rocket}</span> : null}
                 </div>
               </div>
-
-
-
               {safeImage ? (
                   <div className="thumbWrap" aria-hidden="true">
                     <img className="thumb" src={safeImage} alt="" loading="lazy" />
@@ -150,17 +147,6 @@ export default function App() {
               )}
             </div>
 
-            <div className="actions">
-              <button className="btn" onClick={() => load()} disabled={loading}>
-                {loading ? "Aktualizuji…" : "Aktualizovat teď"}
-              </button>
-              {data?.url ? (
-                <a className="btn ghost" href={data.url} target="_blank" rel="noreferrer">
-                  Detail v Launch Library
-                </a>
-              ) : null}
-            </div>
-
             {err ? <div className="alert">Chyba: {err}</div> : null}
 
             {changeNote ? (
@@ -175,17 +161,17 @@ export default function App() {
             ) : null}
           </section>
 
-          <aside className="card side">
+          <aside className="card side sideLarge">
             <h2>Detaily</h2>
             <dl className="dl">
               <Row label="Stav" value={data?.status ?? "Neznámý"} />
-              <Row label="Místo" value={data?.location ?? "Neznámé"} />
+              <Row label="Místo" value={data?.location ?? "Neznámé"} wrap/>
               <Row label="Rampa" value={data?.pad ?? "Neznámá"} />
-              <Row label="Start (Praha)" value={prague ?? "Neznámé"} />
-              <Row label="Start (UTC)" value={utc ?? "Neznámé"} />
+              <Row label="Start (Praha)" value={prague ?? "Neznámé"} wrap />
+              <Row label="Start (UTC)" value={utc ?? "Neznámé"} wrap />
               {/* ISO si můžeš nechat třeba jako referenci */}
-              <Row label="NET (ISO)" value={data?.net ?? "Neznámé"} />
-              <Row label="Poslední aktualizace" value={lastUpdatedPrague ?? (data?.last_updated ?? "Neznámá")} />
+              <Row label="NET (ISO)" value={data?.net ?? "Neznámé"} wrap />
+              <Row label="Poslední aktualizace" value={lastUpdatedPrague ?? (data?.last_updated ?? "Neznámá")} wrap />
               <Row label="Refresh" value={`${Math.round(REFRESH_MS / 60000)} minut`} />
             </dl>
 
@@ -219,11 +205,11 @@ function TimeBox({ label, value }) {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value,wrap = false }) {
   return (
     <div className="row">
       <dt>{label}</dt>
-      <dd title={value}>{value}</dd>
+      <dd className={wrap ? "wrap": ""} title={value}>{value}</dd>
     </div>
   );
 }
