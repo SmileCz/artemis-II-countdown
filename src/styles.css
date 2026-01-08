@@ -53,7 +53,7 @@ a { color: inherit; }
 .grid {
   display: grid;
   grid-template-columns: 1.25fr 1fr;
-  gap: 8px;
+  gap: 16px;
 }
 
 .card {
@@ -66,6 +66,9 @@ a { color: inherit; }
 
 .hero { padding: 18px; }
 .side { padding: 18px; }
+
+.sideLarge { padding: 22px; }
+.sideLarge h2 { font-size: 20px; }
 
 .heroTop {
   display: grid;
@@ -163,10 +166,18 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Libe
 
 h2 { margin: 0 0 12px; font-size: 18px; }
 
-.dl { display: grid; gap: 10px; }
-.row { display: grid; grid-template-columns: 160px 1fr; gap: 12px; }
+.dl { display: grid; gap: 12px; }
+
+.row { display: grid; grid-template-columns: 190px 1fr; gap: 12px; }
 dt { color: var(--dim); }
 dd { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+dd.wrap {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
 
 .tip {
   margin-top: 14px;
@@ -196,39 +207,9 @@ dd { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; w
   margin: 10px 0;
 }
 
-dd.wrap {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  line-height: 1.25;
-}
-
-.sideLarge {
-  padding: 22px;
-}
-
-.sideLarge h2 {
-  font-size: 20px;
-}
-
-.sideLarge .dl {
-  gap: 12px;
-}
-
-.sideLarge .row {
-  grid-template-columns: 190px 1fr; /* víc místa pro labely */
-}
-
-.sideLarge dd {
-  white-space: normal;      /* konec tří teček */
-  overflow: visible;
-  text-overflow: clip;
-  line-height: 1.25;
-}
-
 @media (max-width: 920px) {
   .grid { grid-template-columns: 1fr; }
-  .row { grid-template-columns: 140px 1fr; }
+  .row { grid-template-columns: 160px 1fr; }
   .header h1 { font-size: 38px; }
 }
 

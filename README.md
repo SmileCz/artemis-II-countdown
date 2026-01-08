@@ -2,39 +2,28 @@
 
 Malá React SPA stránka s odpočtem startu mise Artemis II.
 
-- Odpočet se počítá z aktuálního termínu, který se pravidelně stahuje z Launch Library 2 (The Space Devs).
-- Kvůli CORS se API tahá přes Nginx reverse proxy v tom samém containeru (`/api/ll2/...`).
-- UI je schválně jednoduché, rychlé a hezké.
+## Co umí
+- Odpočet v reálném čase.
+- Automaticky stahuje aktuální termín z Launch Library 2.
+- V dev režimu používá **lldev** (nižší šance na limit), v produkci **ll**.
+- Při **HTTP 429** klient respektuje `Retry-After` a dočasně přestane dotazovat.
+- Nginx v produkčním kontejneru má **cache** a při 429 umí **fallback na lldev** (sdílené pro všechny uživatele na stejném serveru).
+- Časy jsou lidsky čitelné včetně časové zóny (SEČ/UTC).
+- Odkaz „Detail v Launch Library“ vždy míří na absolutní URL.
+- Obrázek se zobrazí jen když je `https://` (aby nevznikal mixed content).
 
-## Lokální spuštění
-
+## Lokální vývoj
 ```bash
 npm i
 npm run dev
 ```
 
-## Build
-
-```bash
-npm run build
-npm run preview
-```
-
 ## Docker
-
 ```bash
-docker build -t artemis-ii-countdown:local .
-docker run --rm -p 8080:80 artemis-ii-countdown:local
+docker build -t smilecz/artemis-ii-countdown:local .
+docker run --rm -p 8080:80 smilecz/artemis-ii-countdown:local
 ```
 
-Pak otevři http://localhost:8080
-
-## Poznámka k datům
-
-Oficiální NASA stránky často uvádí jen orientační datum nebo „no later than“.
-Pro praktický odpočet používáme Launch Library 2, která vede konkrétní NET čas a `last_updated`.
-
-
-## Dev poznámka (Vite)
-
-`/api/ll2/...` funguje i při `npm run dev` díky proxy nastavení ve `vite.config.js`.
+## Portainer
+V `portainer-stack.yml` je připravený compose stack s Traefik labels a redirectem z HTTP na HTTPS.
+Očekává se externí síť `edge`.

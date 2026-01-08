@@ -4,6 +4,8 @@ export function formatDateTime(date, locale = "cs-CZ", timeZone) {
       dateStyle: "full",
       timeStyle: "medium",
       timeZone,
+      timeZoneName: "short",
+      hourCycle: "h23",
     }).format(date);
   } catch {
     return date.toISOString();

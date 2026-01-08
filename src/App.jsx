@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { fetchArtemisII } from "./lib/ll2.js";
 import { formatDateTime, pad2, splitCountdown } from "./lib/time.js";
 
-const REFRESH_MS = 60 * 60 * 1000; // 15 minut
-const TICK_MS = 250; // plynulejší odpočet bez zbytečné zátěže
+const REFRESH_MS = 60 * 60 * 1000; // 60 minut
+const TICK_MS = 250;
 
 function useInterval(cb, delay) {
   const saved = useRef(cb);
@@ -24,6 +24,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [changeNote, setChangeNote] = useState(null);
+  const [pausedUntil, setPausedUntil] = useState(null);
 
   const target = useMemo(() => {
     const iso = data?.net;
@@ -42,7 +43,24 @@ export default function App() {
     return splitCountdown(remaining);
   }, [remaining]);
 
+  const prague = target ? formatDateTime(target, "cs-CZ", "Europe/Prague") : null;
+  const utc = target ? formatDateTime(target, "cs-CZ", "UTC") : null;
+
+  const lastUpdatedDate = data?.last_updated ? new Date(data.last_updated) : null;
+  const lastUpdatedPrague =
+    lastUpdatedDate && !isNaN(lastUpdatedDate)
+      ? formatDateTime(lastUpdatedDate, "cs-CZ", "Europe/Prague")
+      : null;
+
+  const safeImage =
+    data?.image && String(data.image).startsWith("https://") ? data.image : null;
+
+  const isLaunched = remaining != null && remaining <= 0;
+
   async function load() {
+    const nowMs = Date.now();
+    if (pausedUntil && nowMs < pausedUntil) return;
+
     const ctrl = new AbortController();
     try {
       setLoading(true);
@@ -50,7 +68,6 @@ export default function App() {
 
       const next = await fetchArtemisII(ctrl.signal);
 
-      // detekce posunu termínu proti minulé známé hodnotě v localStorage
       const key = "artemis2:last_net";
       const prevNet = localStorage.getItem(key);
       if (prevNet && prevNet !== next.net) {
@@ -62,8 +79,22 @@ export default function App() {
       }
       localStorage.setItem(key, next.net);
 
+      setPausedUntil(null);
       setData(next);
     } catch (e) {
+      if (e?.status === 429) {
+        const waitMs = e.retryAfterMs ?? 15 * 60 * 1000;
+        const until = Date.now() + waitMs;
+        setPausedUntil(until);
+        setErr(
+          `LL2 omezilo dotazy (HTTP 429). Další pokus za ${Math.max(
+            1,
+            Math.ceil(waitMs / 1000)
+          )} s.`
+        );
+        return;
+      }
+
       setErr(e?.message ?? String(e));
     } finally {
       setLoading(false);
@@ -77,16 +108,29 @@ export default function App() {
   }, []);
 
   useInterval(() => setNow(Date.now()), TICK_MS);
-  useInterval(() => load(), REFRESH_MS);
+  useInterval(() => load(), pausedUntil ? null : REFRESH_MS);
 
-  const prague = target ? formatDateTime(target, "cs-CZ", "Europe/Prague") : null;
-  const utc = target ? formatDateTime(target, "cs-CZ", "UTC") : null;
-  const lastUpdatedDate = data?.last_updated ? new Date(data.last_updated) : null;
-  const lastUpdatedPrague = lastUpdatedDate && !isNaN(lastUpdatedDate)  ? formatDateTime(lastUpdatedDate, "cs-CZ", "Europe/Prague") : null;
+  useEffect(() => {
+    if (!pausedUntil) return;
 
-  const isLaunched = remaining != null && remaining <= 0;
+    const msLeft = pausedUntil - Date.now();
+    if (msLeft <= 0) {
+      setPausedUntil(null);
+      load();
+      return;
+    }
 
-  const safeImage = data?.image && data.image.startsWith("https://") ? data.image : null;
+    const id = setTimeout(() => {
+      setPausedUntil(null);
+      load();
+    }, msLeft);
+
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pausedUntil]);
+
+  const paused =
+    pausedUntil && Date.now() < pausedUntil ? pausedUntil - Date.now() : 0;
 
   return (
     <div className="page">
@@ -95,7 +139,8 @@ export default function App() {
           <div className="badge">Artemis II</div>
           <h1>Odpočet startu</h1>
           <p className="sub">
-            Datum se průběžně aktualizuje z veřejného zdroje a stránka si sama hlídá změny.
+            Datum se průběžně aktualizuje. Při limitu (429) stránka respektuje
+            Retry-After a dočasně přestane dotazovat.
           </p>
         </header>
 
@@ -107,13 +152,14 @@ export default function App() {
                 <div className="title">{data?.name ?? "Načítám…"}</div>
                 <div className="meta">
                   <span>{data?.provider ?? "NASA"}</span>
-                  {data?.rocket ? <span>• {data.rocket}</span> : null}
+                  {data?.rocket ? <span> • {data.rocket}</span> : null}
                 </div>
               </div>
+
               {safeImage ? (
-                  <div className="thumbWrap" aria-hidden="true">
-                    <img className="thumb" src={safeImage} alt="" loading="lazy" />
-                  </div>
+                <div className="thumbWrap" aria-hidden="true">
+                  <img className="thumb" src={safeImage} alt="" loading="lazy" />
+                </div>
               ) : null}
             </div>
 
@@ -134,7 +180,9 @@ export default function App() {
 
                   <div className="small">
                     {isLaunched ? (
-                      <span className="pill ok">Čas vypršel. V ideálním vesmíru to znamená start.</span>
+                      <span className="pill ok">
+                        Čas vypršel. V ideálním vesmíru to znamená start.
+                      </span>
                     ) : (
                       <span className="pill">Cíl: {prague}</span>
                     )}
@@ -145,6 +193,30 @@ export default function App() {
               ) : (
                 <div className="small">Datum startu není k dispozici.</div>
               )}
+            </div>
+
+            <div className="actions">
+              <button
+                className="btn"
+                onClick={() => load()}
+                disabled={loading || paused > 0}
+              >
+                {loading
+                  ? "Aktualizuji…"
+                  : paused > 0
+                  ? `Čekám na limit… (${Math.ceil(paused / 1000)} s)`
+                  : "Aktualizovat teď"}
+              </button>
+              {data?.url ? (
+                <a
+                  className="btn ghost"
+                  href={data.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Detail v Launch Library
+                </a>
+              ) : null}
             </div>
 
             {err ? <div className="alert">Chyba: {err}</div> : null}
@@ -165,22 +237,30 @@ export default function App() {
             <h2>Detaily</h2>
             <dl className="dl">
               <Row label="Stav" value={data?.status ?? "Neznámý"} />
-              <Row label="Místo" value={data?.location ?? "Neznámé"} wrap/>
+              <Row label="Místo" value={data?.location ?? "Neznámé"} />
               <Row label="Rampa" value={data?.pad ?? "Neznámá"} />
+
               <Row label="Start (Praha)" value={prague ?? "Neznámé"} wrap />
               <Row label="Start (UTC)" value={utc ?? "Neznámé"} wrap />
-              {/* ISO si můžeš nechat třeba jako referenci */}
               <Row label="NET (ISO)" value={data?.net ?? "Neznámé"} wrap />
-              <Row label="Poslední aktualizace" value={lastUpdatedPrague ?? (data?.last_updated ?? "Neznámá")} wrap />
-              <Row label="Refresh" value={`${Math.round(REFRESH_MS / 60000)} minut`} />
-            </dl>
 
+              <Row
+                label="Poslední aktualizace"
+                value={lastUpdatedPrague ?? (data?.last_updated ?? "Neznámá")}
+                wrap
+              />
+
+              <Row
+                label="Refresh"
+                value={`${Math.round(REFRESH_MS / 60000)} minut`}
+              />
+            </dl>
 
             <div className="tip">
               <div className="tipTitle">Poznámka</div>
               <div className="tipBody">
-                NASA často uvádí jen orientační nebo „nejpozději do“ datum, zatímco veřejné launch databáze drží konkrétní
-                NET čas a průběžně ho aktualizují podle dostupných informací.
+                Produkční Nginx má cache a při 429 umí fallback na lldev. Klient
+                navíc respektuje Retry-After a dočasně přestane dotazovat.
               </div>
             </div>
           </aside>
@@ -205,11 +285,13 @@ function TimeBox({ label, value }) {
   );
 }
 
-function Row({ label, value,wrap = false }) {
+function Row({ label, value, wrap = false }) {
   return (
     <div className="row">
       <dt>{label}</dt>
-      <dd className={wrap ? "wrap": ""} title={value}>{value}</dd>
+      <dd className={wrap ? "wrap" : ""} title={value}>
+        {value}
+      </dd>
     </div>
   );
 }
