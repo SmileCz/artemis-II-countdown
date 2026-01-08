@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { fetchArtemisII } from "./lib/ll2.js";
-import { formatDateTime, pad2, splitCountdown } from "./lib/time.js";
+import { formatDateTimeHumanCZ, pad2, splitCountdown } from "./lib/time.js";
 
 const REFRESH_MS = 60 * 60 * 1000; // 60 minut
 const TICK_MS = 250;
@@ -43,14 +43,14 @@ export default function App() {
     return splitCountdown(remaining);
   }, [remaining]);
 
-  const prague = target ? formatDateTime(target, "cs-CZ", "Europe/Prague") : null;
-  const utc = target ? formatDateTime(target, "cs-CZ", "UTC") : null;
+  const prague = target ? formatDateTimeHumanCZ(target, "Europe/Prague") : null;
+  const utc = target ? formatDateTimeHumanCZ(target, "UTC") : null;
 
   const lastUpdatedDate = data?.last_updated ? new Date(data.last_updated) : null;
   const lastUpdatedPrague =
-    lastUpdatedDate && !isNaN(lastUpdatedDate)
-      ? formatDateTime(lastUpdatedDate, "cs-CZ", "Europe/Prague")
-      : null;
+      lastUpdatedDate && !isNaN(lastUpdatedDate)
+          ? formatDateTimeHumanCZ(lastUpdatedDate, "Europe/Prague")
+          : null;
 
   const safeImage =
     data?.image && String(data.image).startsWith("https://") ? data.image : null;
@@ -207,16 +207,6 @@ export default function App() {
                   ? `Čekám na limit… (${Math.ceil(paused / 1000)} s)`
                   : "Aktualizovat teď"}
               </button>
-              {data?.url ? (
-                <a
-                  className="btn ghost"
-                  href={data.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Detail v Launch Library
-                </a>
-              ) : null}
             </div>
 
             {err ? <div className="alert">Chyba: {err}</div> : null}
