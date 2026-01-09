@@ -13,18 +13,28 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=edge"
 
-      # HTTPS router
       - "traefik.http.routers.artemis.rule=Host(`artemis.gearground.cloud`)"
       - "traefik.http.routers.artemis.entrypoints=websecure"
       - "traefik.http.routers.artemis.tls=true"
       - "traefik.http.routers.artemis.tls.certresolver=le"
+      - "traefik.http.routers.artemis.priority=100"
       - "traefik.http.services.artemis.loadbalancer.server.port=80"
 
-      # HTTP router -> redirect to HTTPS
       - "traefik.http.routers.artemis_http.rule=Host(`artemis.gearground.cloud`)"
       - "traefik.http.routers.artemis_http.entrypoints=web"
       - "traefik.http.routers.artemis_http.middlewares=artemis_https_redirect"
       - "traefik.http.middlewares.artemis_https_redirect.redirectscheme.scheme=https"
+
+      - "traefik.http.routers.artemis.middlewares=artemis-errors-404@docker,artemis-errors-5xx@docker"
+
+      - "traefik.http.middlewares.artemis-errors-404.errors.status=404"
+      - "traefik.http.middlewares.artemis-errors-404.errors.service=error-pages-svc@docker"
+      - "traefik.http.middlewares.artemis-errors-404.errors.query=/404.html"
+
+      - "traefik.http.middlewares.artemis-errors-5xx.errors.status=500-599"
+      - "traefik.http.middlewares.artemis-errors-5xx.errors.service=error-pages-svc@docker"
+      - "traefik.http.middlewares.artemis-errors-5xx.errors.query=/error.html"
+
 
 networks:
   edge:
