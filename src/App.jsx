@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { fetchArtemisII } from "./lib/ll2.js";
-import { formatDateTimeHumanCZ, pad2, splitCountdown } from "./lib/time.js";
+import React, {useEffect, useMemo, useRef, useState} from "react";
+import {fetchArtemisII} from "./lib/ll2.js";
+import {formatDateTimeHumanCZ, pad2, splitCountdown} from "./lib/time.js";
+import {Row} from "./components/Row.jsx";
+import {TimeBox} from "./components/TimeBox.jsx";
 
 const REFRESH_MS = 60 * 60 * 1000; // 60 minut
 const TICK_MS = 250;
@@ -72,8 +74,8 @@ export default function App() {
       const prevNet = localStorage.getItem(key);
       if (prevNet && prevNet !== next.net) {
         setChangeNote({
-          from: prevNet,
-          to: next.net,
+          from: formatDateTimeHumanCZ(prevNet,"Europe/Prague"),
+          to: formatDateTimeHumanCZ(next.net,"Europe/Prague"),
           at: new Date().toISOString(),
         });
       }
@@ -129,8 +131,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pausedUntil]);
 
-  const paused =
-    pausedUntil && Date.now() < pausedUntil ? pausedUntil - Date.now() : 0;
+  const paused = pausedUntil && Date.now() < pausedUntil ? pausedUntil - Date.now() : 0;
 
   return (
     <div className="page">
@@ -266,22 +267,3 @@ export default function App() {
   );
 }
 
-function TimeBox({ label, value }) {
-  return (
-    <div className="timeBox">
-      <div className="timeVal">{value}</div>
-      <div className="timeLbl">{label}</div>
-    </div>
-  );
-}
-
-function Row({ label, value, wrap = false }) {
-  return (
-    <div className="row">
-      <dt>{label}</dt>
-      <dd className={wrap ? "wrap" : ""} title={value}>
-        {value}
-      </dd>
-    </div>
-  );
-}
