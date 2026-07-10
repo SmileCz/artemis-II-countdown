@@ -1,14 +1,15 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
-import {fetchArtemisII} from "./lib/ll2.js";
+import {fetchLaunches} from "./lib/ll2.js";
 import {formatDateTimeHumanCZ, pad2, splitCountdown} from "./lib/time.js";
 import {Row} from "./components/Row.jsx";
 import {TimeBox} from "./components/TimeBox.jsx";
 
-const REFRESH_MS = 60 * 60 * 1000; // 60 minut
+const REFRESH_MS = 60 * 60 * 1000;
 const TICK_MS = 250;
 
 function useInterval(cb, delay) {
   const saved = useRef(cb);
+
   useEffect(() => {
     saved.current = cb;
   }, [cb]);
@@ -20,26 +21,47 @@ function useInterval(cb, delay) {
   }, [delay]);
 }
 
+function getLaunchDate(iso) {
+  const value = new Date(iso);
+  return Number.isNaN(value.getTime()) ? null : value;
+}
+
+function getMissionLabel(launch) {
+  if (launch?.display_name) return launch.display_name;
+  if (launch?.mission_name) return launch.mission_name;
+  if (launch?.name) return launch.name;
+  return "Artemis";
+}
+
+function isPastMission(launch, nowMs) {
+  const status = String(launch?.status ?? "").toLowerCase();
+  if (status === "future" || status === "active") return false;
+  if (status === "past") return true;
+
+  if (!launch?.net) return false;
+  const launchTime = new Date(launch.net).getTime();
+  return Number.isFinite(launchTime) ? launchTime <= nowMs : false;
+}
+
 export default function App() {
   const [data, setData] = useState(null);
+  const [selectedLaunchId, setSelectedLaunchId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [changeNote, setChangeNote] = useState(null);
   const [pausedUntil, setPausedUntil] = useState(null);
 
-  const target = useMemo(() => {
-    const iso = data?.net;
-    if (!iso) return null;
-    const d = new Date(iso);
-    return isNaN(d.getTime()) ? null : d;
-  }, [data]);
+  const launches = data?.launches ?? [];
+  const upcomingLaunches = data?.upcomingLaunches ?? [];
+  const fallbackLaunch = data?.nextLaunch ?? launches[0] ?? null;
+  const selectedLaunch = launches.find((launch) => launch.id === selectedLaunchId) ?? fallbackLaunch;
 
+  const target = useMemo(() => getLaunchDate(selectedLaunch?.net), [selectedLaunch]);
   const remaining = useMemo(() => {
     if (!target) return null;
     return target.getTime() - now;
   }, [target, now]);
-
   const parts = useMemo(() => {
     if (remaining == null) return null;
     return splitCountdown(remaining);
@@ -47,17 +69,24 @@ export default function App() {
 
   const prague = target ? formatDateTimeHumanCZ(target, "Europe/Prague") : null;
   const utc = target ? formatDateTimeHumanCZ(target, "UTC") : null;
-
-  const lastUpdatedDate = data?.last_updated ? new Date(data.last_updated) : null;
-  const lastUpdatedPrague =
-      lastUpdatedDate && !isNaN(lastUpdatedDate)
-          ? formatDateTimeHumanCZ(lastUpdatedDate, "Europe/Prague")
-          : null;
+  const launchDisplay = prague ?? selectedLaunch?.launch_label ?? null;
+  const windowStartPrague = selectedLaunch?.window_start
+    ? formatDateTimeHumanCZ(selectedLaunch.window_start, "Europe/Prague")
+    : null;
+  const windowEndPrague = selectedLaunch?.window_end
+    ? formatDateTimeHumanCZ(selectedLaunch.window_end, "Europe/Prague")
+    : null;
+  const lastUpdatedPrague = selectedLaunch?.last_updated
+    ? formatDateTimeHumanCZ(selectedLaunch.last_updated, "Europe/Prague")
+    : null;
 
   const safeImage =
-    data?.image && String(data.image).startsWith("https://") ? data.image : null;
+    selectedLaunch?.image && String(selectedLaunch.image).startsWith("https://")
+      ? selectedLaunch.image
+      : null;
 
-  const isLaunched = remaining != null && remaining <= 0;
+  const isPastLaunch = isPastMission(selectedLaunch, now);
+  const selectedMissionLabel = getMissionLabel(selectedLaunch);
 
   async function load() {
     const nowMs = Date.now();
@@ -68,28 +97,35 @@ export default function App() {
       setLoading(true);
       setErr(null);
 
-      const next = await fetchArtemisII(ctrl.signal);
+      const next = await fetchLaunches(ctrl.signal);
+      const trackedLaunch = next.nextLaunch;
 
-      const key = "artemis2:last_net";
+      const key = "artemis:last_net";
       const prevNet = localStorage.getItem(key);
-      if (prevNet && prevNet !== next.net) {
+      if (trackedLaunch?.net && prevNet && prevNet !== trackedLaunch.net) {
         setChangeNote({
-          from: formatDateTimeHumanCZ(prevNet,"Europe/Prague"),
-          to: formatDateTimeHumanCZ(next.net,"Europe/Prague"),
+          from: formatDateTimeHumanCZ(prevNet, "Europe/Prague"),
+          to: formatDateTimeHumanCZ(trackedLaunch.net, "Europe/Prague"),
           at: new Date().toISOString(),
         });
       }
-      localStorage.setItem(key, next.net);
+      if (trackedLaunch?.net) {
+        localStorage.setItem(key, trackedLaunch.net);
+      }
 
       setPausedUntil(null);
       setData(next);
+      setSelectedLaunchId((current) => {
+        if (current && next.launches.some((launch) => launch.id === current)) return current;
+        return trackedLaunch?.id ?? next.launches[0]?.id ?? null;
+      });
     } catch (e) {
       if (e?.status === 429) {
         const waitMs = e.retryAfterMs ?? 15 * 60 * 1000;
         const until = Date.now() + waitMs;
         setPausedUntil(until);
         setErr(
-          `LL2 omezilo dotazy (HTTP 429). Další pokus za ${Math.max(
+          `Zdroj dat omezil dotazy (HTTP 429). Další pokus za ${Math.max(
             1,
             Math.ceil(waitMs / 1000)
           )} s.`
@@ -101,12 +137,12 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+
     return () => ctrl.abort();
   }
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useInterval(() => setNow(Date.now()), TICK_MS);
@@ -128,7 +164,6 @@ export default function App() {
     }, msLeft);
 
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pausedUntil]);
 
   const paused = pausedUntil && Date.now() < pausedUntil ? pausedUntil - Date.now() : 0;
@@ -137,23 +172,65 @@ export default function App() {
     <div className="page">
       <div className="shell">
         <header className="header">
-          <div className="badge">Artemis II</div>
-          <h1>Odpočet startu</h1>
+          <div className="badge">Artemis Program</div>
+          <h1>Starty a archiv misí Artemis</h1>
           <p className="sub">
-            Datum se průběžně aktualizuje. Při limitu (429) stránka respektuje
-            Retry-After a dočasně přestane dotazovat.
+            Stránka přepíná mezi Artemis misemi. Budoucí mise mají odpočet, u minulých
+            misí se zobrazuje rozšířený archivní detail.
           </p>
         </header>
+
+        <section className="card picker">
+          <div className="pickerHead">
+            <h2>Mise Artemis</h2>
+            <div className="pickerMeta">
+              {upcomingLaunches.length > 0
+                ? `${upcomingLaunches.length} budoucí`
+                : "Bez potvrzené budoucí mise"}
+            </div>
+          </div>
+
+          <div className="launchTabs">
+            {launches.length > 0 ? (
+              launches.map((launch) => {
+                const isPast = isPastMission(launch, now);
+                const isActive = launch.id === selectedLaunch?.id;
+
+                return (
+                  <button
+                    key={launch.id}
+                    className={`launchTab${isActive ? " active" : ""}`}
+                    onClick={() => setSelectedLaunchId(launch.id)}
+                    type="button"
+                  >
+                    <span className="launchTabEyebrow">
+                      {isPast ? "Archiv" : "Plán"} • {launch.status_abbrev ?? launch.status ?? "TBD"}
+                    </span>
+                    <span className="launchTabTitle">{getMissionLabel(launch)}</span>
+                    <span className="launchTabMeta">
+                      {launch.net
+                        ? formatDateTimeHumanCZ(launch.net, "Europe/Prague")
+                        : (launch.launch_label ?? "Datum neznámé")}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="small">Artemis mise nejsou k dispozici.</div>
+            )}
+          </div>
+        </section>
 
         <main className="grid">
           <section className="card hero">
             <div className="heroTop">
               <div className="heroTitle">
-                <div className="kicker">Mise</div>
-                <div className="title">{data?.name ?? "Načítám…"}</div>
+                <div className="kicker">{isPastLaunch ? "Archiv mise" : "Vybraná mise"}</div>
+                <div className="title">{selectedLaunch?.name ?? "Načítám…"}</div>
                 <div className="meta">
-                  <span>{data?.provider ?? "NASA"}</span>
-                  {data?.rocket ? <span> • {data.rocket}</span> : null}
+                  <span>{selectedLaunch?.provider ?? "NASA"}</span>
+                  {selectedLaunch?.rocket ? <span> • {selectedLaunch.rocket}</span> : null}
+                  {selectedLaunch?.mission_type ? <span> • {selectedLaunch.mission_type}</span> : null}
                 </div>
               </div>
 
@@ -164,57 +241,93 @@ export default function App() {
               ) : null}
             </div>
 
-            <div className="timerBlock" aria-live="polite">
-              {loading && !data ? (
-                <div className="timerSkeleton">
-                  <div className="sLine" />
-                  <div className="sLine" />
-                </div>
-              ) : parts ? (
-                <>
-                  <div className="timerRow">
-                    <TimeBox label="dní" value={String(parts.days)} />
-                    <TimeBox label="hod" value={pad2(parts.hours)} />
-                    <TimeBox label="min" value={pad2(parts.minutes)} />
-                    <TimeBox label="sek" value={pad2(parts.seconds)} />
+            {!isPastLaunch ? (
+              <div className="timerBlock" aria-live="polite">
+                {loading && !data ? (
+                  <div className="timerSkeleton">
+                    <div className="sLine" />
+                    <div className="sLine" />
                   </div>
+                ) : parts ? (
+                  <>
+                    <div className="timerRow">
+                      <TimeBox label="dní" value={String(parts.days)} />
+                      <TimeBox label="hod" value={pad2(parts.hours)} />
+                      <TimeBox label="min" value={pad2(parts.minutes)} />
+                      <TimeBox label="sek" value={pad2(parts.seconds)} />
+                    </div>
 
-                  <div className="small">
-                    {isLaunched ? (
-                      <span className="pill ok">
-                        Čas vypršel. V ideálním vesmíru to znamená start.
-                      </span>
-                    ) : (
+                    <div className="small">
                       <span className="pill">Cíl: {prague}</span>
-                    )}
+                    </div>
+
+                    {utc ? <div className="tiny">UTC: {utc}</div> : null}
+                  </>
+                ) : (
+                  <div className="small">
+                    {launchDisplay
+                      ? `Oficiální datum: ${launchDisplay}`
+                      : "Datum startu není k dispozici."}
                   </div>
+                )}
+              </div>
+            ) : (
+              <div className="archiveBlock">
+                <div className="archiveBadge">Předchozí start</div>
+                <div className="archiveHeadline">
+                  {launchDisplay ?? "Čas startu není k dispozici"}
+                </div>
+                <p className="archiveCopy">
+                  {selectedLaunch?.mission_description ??
+                    "K této Artemis misi není v Launch Library 2 delší popis."}
+                </p>
+                <dl className="archiveGrid">
+                  <Row label="Stav mise" value={selectedLaunch?.status ?? "Neznámý"} />
+                  <Row label="Mise" value={selectedLaunch?.mission_name ?? selectedMissionLabel} wrap />
+                  <Row label="Místo" value={selectedLaunch?.location ?? "Neznámé"} wrap />
+                  <Row label="Rampa" value={selectedLaunch?.pad ?? "Neznámá"} wrap />
+                  <Row label="Raketa" value={selectedLaunch?.rocket ?? "Neznámá"} wrap />
+                  <Row label="Orbit" value={selectedLaunch?.orbit ?? "Neuveden"} wrap />
+                  <Row label="Window start" value={windowStartPrague ?? "Neznámé"} wrap />
+                  <Row label="Window end" value={windowEndPrague ?? "Neznámé"} wrap />
+                </dl>
+                {selectedLaunch?.webcast ? (
+                  <div className="actions">
+                    <a
+                      className="btn"
+                      href={selectedLaunch.webcast}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Záznam / webcast
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+            )}
 
-                  {utc ? <div className="tiny">UTC: {utc}</div> : null}
-                </>
-              ) : (
-                <div className="small">Datum startu není k dispozici.</div>
-              )}
-            </div>
-
-            <div className="actions">
-              <button
-                className="btn"
-                onClick={() => load()}
-                disabled={loading || paused > 0}
-              >
-                {loading
-                  ? "Aktualizuji…"
-                  : paused > 0
-                  ? `Čekám na limit… (${Math.ceil(paused / 1000)} s)`
-                  : "Aktualizovat teď"}
-              </button>
-            </div>
+            {!isPastLaunch ? (
+              <div className="actions">
+                <button
+                  className="btn"
+                  onClick={() => load()}
+                  disabled={loading || paused > 0}
+                  type="button"
+                >
+                  {loading
+                    ? "Aktualizuji…"
+                    : paused > 0
+                      ? `Čekám na limit… (${Math.ceil(paused / 1000)} s)`
+                      : "Aktualizovat teď"}
+                </button>
+              </div>
+            ) : null}
 
             {err ? <div className="alert">Chyba: {err}</div> : null}
 
             {changeNote ? (
               <div className="notice" role="status">
-                <div className="noticeTitle">Detekována změna termínu</div>
+                <div className="noticeTitle">Detekována změna nejbližší mise</div>
                 <div className="noticeBody">
                   Předtím: <code>{changeNote.from}</code>
                   <br />
@@ -225,33 +338,33 @@ export default function App() {
           </section>
 
           <aside className="card side sideLarge">
-            <h2>Detaily</h2>
+            <h2>Detaily výběru</h2>
             <dl className="dl">
-              <Row label="Stav" value={data?.status ?? "Neznámý"} />
-              <Row label="Místo" value={data?.location ?? "Neznámé"} />
-              <Row label="Rampa" value={data?.pad ?? "Neznámá"} />
-
+              <Row label="Mise" value={selectedMissionLabel} />
+              <Row label="Stav" value={selectedLaunch?.status ?? "Neznámý"} />
+              <Row label="Typ" value={selectedLaunch?.mission_type ?? "Neznámý"} />
+              <Row label="Crewed" value={selectedLaunch?.is_crewed ? "Ano" : "Ne / neuvedeno"} />
+              <Row label="Místo" value={selectedLaunch?.location ?? "Neznámé"} wrap />
+              <Row label="Rampa" value={selectedLaunch?.pad ?? "Neznámá"} wrap />
               <Row label="Start (Praha)" value={prague ?? "Neznámé"} wrap />
+              <Row label="Start (oficiální)" value={launchDisplay ?? "Neznámé"} wrap />
               <Row label="Start (UTC)" value={utc ?? "Neznámé"} wrap />
-              <Row label="NET (ISO)" value={data?.net ?? "Neznámé"} wrap />
-
+              <Row label="Window start" value={windowStartPrague ?? "Neznámé"} wrap />
+              <Row label="Window end" value={windowEndPrague ?? "Neznámé"} wrap />
+              <Row label="NET (ISO)" value={selectedLaunch?.net ?? "Neznámé"} wrap />
               <Row
                 label="Poslední aktualizace"
-                value={lastUpdatedPrague ?? (data?.last_updated ?? "Neznámá")}
+                value={lastUpdatedPrague ?? (selectedLaunch?.last_updated ?? "Neznámá")}
                 wrap
               />
-
-              <Row
-                label="Refresh"
-                value={`${Math.round(REFRESH_MS / 60000)} minut`}
-              />
+              <Row label="Refresh" value={`${Math.round(REFRESH_MS / 60000)} minut`} />
             </dl>
 
             <div className="tip">
               <div className="tipTitle">Poznámka</div>
               <div className="tipBody">
-                Produkční Nginx má cache a při 429 umí fallback na lldev. Klient
-                navíc respektuje Retry-After a dočasně přestane dotazovat.
+                Výběr je omezený jen na Artemis mise z Launch Library 2. Produkční Nginx
+                má cache a při 429 umí fallback na lldev.
               </div>
             </div>
           </aside>
@@ -266,4 +379,3 @@ export default function App() {
     </div>
   );
 }
-
