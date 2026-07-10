@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {ARTEMIS_FALLBACKS} from "./artemisContent.js";
+import {persistLaunchChange} from "./changeStore.js";
 import {fetchLaunches} from "./ll2.js";
 import {formatDateTimeHumanCZ, splitCountdown} from "./time.js";
 import {getLaunchDate, getMissionLabel, isPastMission} from "./artemisView.js";
@@ -86,6 +87,16 @@ export function useArtemisApp() {
           from: formatDateTimeHumanCZ(prevNet, "Europe/Prague"),
           to: formatDateTimeHumanCZ(trackedLaunch.net, "Europe/Prague"),
           at: new Date().toISOString(),
+        });
+
+        persistLaunchChange({
+          missionKey: trackedLaunch.mission_key,
+          missionLabel: getMissionLabel(trackedLaunch),
+          fromNet: prevNet,
+          toNet: trackedLaunch.net,
+          detectedAt: new Date().toISOString(),
+        }).catch((persistError) => {
+          console.error("Failed to persist launch change", persistError);
         });
       }
       if (trackedLaunch?.net) {

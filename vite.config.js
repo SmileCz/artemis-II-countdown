@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       ? "https://lldev.thespacedevs.com/2.3.0"
       : "https://ll.thespacedevs.com/2.3.0");
   const NASA_TARGET = env.VITE_NASA_TARGET || "https://www.nasa.gov";
+  const CHANGES_TARGET = env.VITE_CHANGES_TARGET || "http://127.0.0.1:8787";
 
   return {
     plugins: [react()],
@@ -29,6 +30,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/api\/nasa\/?/, "/"),
+        },
+        "/api/changes": {
+          target: CHANGES_TARGET,
+          changeOrigin: true,
+          secure: false,
         },
       },
     },

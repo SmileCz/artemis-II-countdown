@@ -5,6 +5,8 @@ services:
     image: smilecz/artemis-ii-countdown:latest
     container_name: artemis_countdown
     restart: unless-stopped
+    volumes:
+      - artemis_data:/data
 
     networks:
       - edge
@@ -39,3 +41,6 @@ services:
 networks:
   edge:
     external: true
+
+volumes:
+  artemis_data:

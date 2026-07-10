@@ -5,9 +5,10 @@ Jednoduchá React SPA stránka s odpočtem startu mise Artemis II. Datum startu 
 ## Co umí
 - Odpočet v reálném čase.
 - Průběžně načítá aktuální termín z Launch Library 2 (přes `/api/ll2/...`).
+- Každou změnu termínu budoucí mise ukládá do SQLite (`/api/changes`).
 - V dev režimu se má používat `lldev` (nižší šance na limit), v produkci `ll`.
 - Při HTTP 429 respektuje `Retry-After` a dočasně přestane dotazovat.
-- Produkční Nginx má cache pro LL2 volání (a může mít i fallback na `lldev`, pokud je zapnutý v `nginx.conf`).
+- Produkční Nginx má cache pro LL2 volání a reverzní proxy na lokální changes API.
 
 Poznámka: Tlačítko „Detail“ je záměrně odstraněné, aby se už nikdy neřešilo přesměrování na API nebo relativní URL.
 
@@ -19,6 +20,8 @@ npm run dev
 
 Otevři `http://localhost:5173`.
 
+Lokální API běží na `http://127.0.0.1:8787` a SQLite soubor se ukládá do `data/artemis-changes.db`.
+
 ## Lokální Docker build a test
 ```bash
 docker build -t artemis-ii-countdown:local .
@@ -26,6 +29,8 @@ docker run --rm -p 8080:80 artemis-ii-countdown:local
 ```
 
 Otevři `http://localhost:8080`.
+
+Pro zachování historie změn při restartu kontejneru připoj volume na `/data`.
 
 ## Build a push do registry (Docker Hub nebo vlastní registry)
 
@@ -86,6 +91,8 @@ V `portainer-stack.yml` nastav image na tu, kterou jsi pushnul:
 services:
   artemis_countdown:
     image: registry.gearground.cloud/gearground/ll2-artemis-ii-countdown:latest
+    volumes:
+      - artemis_data:/data
 ```
 
 Potom v Portaineru stack redeployni.
