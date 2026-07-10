@@ -9,6 +9,8 @@ Jednoduchá React SPA stránka s odpočtem startu mise Artemis II. Datum startu 
 - V dev režimu se má používat `lldev` (nižší šance na limit), v produkci `ll`.
 - Při HTTP 429 respektuje `Retry-After` a dočasně přestane dotazovat.
 - Produkční Nginx má cache pro LL2 volání a reverzní proxy na lokální changes API.
+- Docker image kontroluje jak frontend, tak interní API health endpoint.
+- Runtime běží bez root práv.
 
 Poznámka: Tlačítko „Detail“ je záměrně odstraněné, aby se už nikdy neřešilo přesměrování na API nebo relativní URL.
 
@@ -25,12 +27,12 @@ Lokální API běží na `http://127.0.0.1:8787` a SQLite soubor se ukládá do 
 ## Lokální Docker build a test
 ```bash
 docker build -t artemis-ii-countdown:local .
-docker run --rm -p 8080:80 artemis-ii-countdown:local
+docker run --rm -p 8080:8080 artemis-ii-countdown:local
 ```
 
 Otevři `http://localhost:8080`.
 
-Pro zachování historie změn při restartu kontejneru připoj volume na `/data`.
+Pro zachování historie změn při restartu kontejneru připoj volume nebo bind mount na `/data`.
 
 ## Build a push do registry (Docker Hub nebo vlastní registry)
 
@@ -97,7 +99,16 @@ services:
 
 Potom v Portaineru stack redeployni.
 
+Pro snadné zálohy můžeš místo named volume použít bind mount, například:
+
+```yaml
+services:
+  artemis_countdown:
+    volumes:
+      - /srv/artemis-countdown:/data
+```
+
 ### Poznámky
 - Očekává se externí síť `edge`.
-- Traefik routuje `artemis.gearground.cloud` na port 80 v kontejneru.
+- Traefik routuje `artemis.gearground.cloud` na port 8080 v kontejneru.
 - Redirect HTTP → HTTPS řeší Traefik labels v `portainer-stack.yml`.

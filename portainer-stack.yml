@@ -20,7 +20,7 @@ services:
       - "traefik.http.routers.artemis.tls=true"
       - "traefik.http.routers.artemis.tls.certresolver=le"
       - "traefik.http.routers.artemis.priority=100"
-      - "traefik.http.services.artemis.loadbalancer.server.port=80"
+      - "traefik.http.services.artemis.loadbalancer.server.port=8080"
 
       - "traefik.http.routers.artemis_http.rule=Host(`artemis.gearground.cloud`)"
       - "traefik.http.routers.artemis_http.entrypoints=web"
@@ -44,3 +44,6 @@ networks:
 
 volumes:
   artemis_data:
+    # Alternativa pro snadné zálohy mimo Docker volume:
+    # Nahraď výše service volume mapování tímto bind mountem:
+    # - /srv/artemis-countdown:/data
