@@ -14,7 +14,7 @@ FROM node:20-alpine3.23
 # stáhni security fixy z Alpine repozitářů
 RUN apk upgrade --no-cache \
  && apk add --no-cache nginx wget \
- && mkdir -p /var/cache/nginx/ll2 /var/lib/nginx/tmp /var/log/nginx /run/nginx /data \
+ && mkdir -p /var/cache/nginx/ll2 /var/lib/nginx/tmp /var/log/nginx /run/nginx /data /usr/share/nginx/html \
  && chown -R node:node /var/cache/nginx /var/lib/nginx /var/log/nginx /run/nginx /data /usr/share/nginx/html
 
 WORKDIR /app
