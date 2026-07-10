@@ -1,0 +1,37 @@
+export const ARTEMIS_PAGE_COPY = {
+  badge: "Artemis Program",
+  title: "Starty a archiv misí Artemis",
+  subtitle:
+    "Stránka přepíná mezi Artemis misemi. Budoucí mise mají odpočet, u minulých misí se zobrazuje rozšířený archivní detail.",
+  pickerTitle: "Mise Artemis",
+  noUpcoming: "Bez potvrzené budoucí mise",
+  noLaunches: "Artemis mise nejsou k dispozici.",
+  heroCurrent: "Vybraná mise",
+  heroArchive: "Archiv mise",
+  archiveBadge: "Předchozí start",
+  missingDate: "Datum startu není k dispozici.",
+  officialDatePrefix: "Oficiální datum:",
+  archiveDescriptionFallback: "K této Artemis misi není k dispozici delší popis.",
+  webcastButton: "Záznam / webcast",
+  refreshButton: "Aktualizovat teď",
+  loadingButton: "Aktualizuji…",
+  detailsTitle: "Detaily výběru",
+  detailsTipTitle: "Poznámka",
+  detailsTipBody: "Budoucí mise berou data z Launch Library 2, archivní mise z NASA archivu.",
+  footerSource: "Zdroj dat: Launch Library 2 + NASA archive",
+  changeTitle: "Detekována změna nejbližší mise",
+  futurePillPrefix: "Cíl:",
+};
+
+export const ARTEMIS_FALLBACKS = {
+  provider: "NASA",
+  status: "Neznámý",
+  missionType: "Neznámý",
+  location: "Neznámé",
+  pad: "Neznámá",
+  rocket: "Neznámá",
+  orbit: "Neuveden",
+  datetime: "Neznámé",
+  updated: "Neznámá",
+  crewed: "Ne / neuvedeno",
+};
